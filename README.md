@@ -112,28 +112,3 @@ Batch mode prints the `.op` node table with only 6 significant digits, so values
 
 **What I'd do next:** Multiple named graphs + revision rollback · streaming per-node results (SSE/WebSocket) · extra node types (`subtract`, `min`, `max`, comparisons) · transient/sweep analyses (`.dc`/`.ac`/`.tran`).
 
-**Live session walkthrough — adding a new node type (e.g. `subtract`):**
-1. `packages/graph-contract/graph.schema.json`: Add `subtract` to `x-node-handles` with inputs `["a", "b"]`, outputs `["out"]`.
-2. `packages/graph-contract/src/types.ts`: Add `'subtract'` to the `NodeType` union.
-3. `services/sim/app/mapping.py`: Add `subtract` device template (`B{name} {net} {ground} V = V({in_a}) - V({in_b})`).
-4. `services/sim/app/engine.py`: Add static constant folding for `subtract` (`static[node_id] = left - right`).
-5. `apps/web/src/graph/nodeDefs.tsx`: Add `'subtract'` to `NODE_TYPES_ORDER`, `nodeTypes`, and accent color.
-6. `apps/web/src/components/Palette.tsx`: Add palette entry and description (`a - b`).
-
-## AI usage note
-
-Written with an AI coding assistant (Arena.ai Agent Mode) as a pair engineer: it proposed the architecture,
-implemented it in stages and ran the checks after each stage. Every claim above is backed by a command that
-actually ran. Bugs found that way were fixed, not hidden — most recently a **React StrictMode lifecycle bug**
-(the engine was created in a ref initialiser and disposed on first cleanup, so the dev server rendered a
-crashed editor while production builds hid it), missing `inputStates` on blocked nodes, and a display-template
-drift between `mapping.py` and the documentation.
-
-**Honest caveat — Docker:** the Docker CLI is **not installed in the sandbox this was built in**, so
-`docker compose up --build` has **never been executed**. Verified instead: `docker-compose.yml` validates
-against the official Compose specification JSON schema; nginx 1.26 ran locally with the real
-`apps/web/nginx.conf`, serving the built bundle and proxying to the live API, with all eight scenarios replayed
-through it; the API booted from a production-dependencies-only bundle and served all eight scenarios; the
-simulation image's file layout, `CMD` and `pytest` command were reproduced in an isolated copy (118 passed, 2
-doc tests correctly skipped there). Container runtime behaviour — image builds, healthcheck timing,
-inter-container DNS — remains **unverified**.
