@@ -76,38 +76,6 @@ DAG; a fully cyclic graph spawns no subprocess at all.
 3. **ngspice misbehaves:** ngspice runs in batch mode (`-b`) in a private temporary directory under a strict wall-clock timeout (`SIM_TIMEOUT_S`, default 5 s). On timeout or crash, the process group is `SIGKILL`ed, temporary artifacts are cleaned up in `finally`, and affected nodes report structured errors without crashing the backend. The UI surfaces connection state and provides a "Retry simulation" control.
 4. **Untrusted formulas:** Formula expressions are parsed with a strict hand-written recursive-descent tokenizer and AST parser in Python (zero `eval`/`exec`). Only numbers, identifiers `a`/`b`, `+ - * /`, and parentheses are permitted; any disallowed token (newlines, dots, shell commands like `a\n.control\nshell ls`) aborts validation immediately (`FORMULA_DISALLOWED_TOKEN`). Rejected expressions never reach netlist generation or ngspice.
 
-**Known case that still breaks:**
-During active editing of a Formula node, incomplete intermediate expressions (e.g., typing `a +` while in progress) trigger an immediate `FORMULA_SYNTAX_ERROR` and mark downstream nodes `blocked` until the user finishes typing. In production, distinguishing "typing in progress" from a committed syntax error would improve user experience. Additionally, extreme floating-point arithmetic (e.g. `1e308 * 1e308`) causes ngspice numerical overflow during operating-point calculation rather than being caught by static algebra.
-
-## Acceptance graphs and verification
-
-The app verifies both the assignment's official eight acceptance graphs (`services/sim/tests/test_assignment_acceptance.py`) and the parameterized HTTP replay suite (`tests/e2e/acceptance-http.mjs`):
-
-| # | Acceptance graph | Expected result | Implementation status |
-|---|---|---|---|
-| 1 | Number 2 and Number 3 → Add → Display | Display = 5 | **PASS** (ngspice behavioural sum) |
-| 2 | Graph 1's Add → Multiply with Number 4 → Display | Display = 20 | **PASS** (chained evaluation order) |
-| 3 | One Number 7 wired into both inputs of Multiply | Display = 49 | **PASS** (fan-out / multi-handle input) |
-| 4 | Number 10 ÷ Number 0 → Display | Divide shows error; Display shows blocked, not stale | **PASS** (`DIVIDE_BY_ZERO`, display `UPSTREAM_ERROR`) |
-| 5 | Add with only one input wired | That Add node is highlighted | **PASS** (`MISSING_INPUT` on handle `b`) |
-| 6 | Add → Multiply → back into the same Add | Loop is flagged on the nodes involved | **PASS** (`CYCLE_DETECTED` via Tarjan SCC) |
-| 7 | Formula `a * 2 + b` with `a = 3, b = 4` | Display = 10 | **PASS** (strict AST → B-source netlist) |
-| 8 | Formula `a + b\n.control\nshell ls` | Rejected with clear message; nothing executes | **PASS** (`FORMULA_DISALLOWED_TOKEN`, 0 devices) |
-
-```bash
-npm run test:contract   # 16  schema, connection rules, Tarjan topology
-npm run test:api        # 25  routes, error codes, revision echo, real MongoDB
-npm run test:web        # 19  live-sync (debounce/revision/abort/stale/recovery) + StrictMode lifecycle
-npm run test:py         # 128 formula safety, validation, netlist, executor, 8 acceptance graphs
-npm run test:acceptance:http   # 102 live checks over HTTP against a running stack
-npm run test:evidence          # re-runs every generated deck through ngspice directly and compares values
-npm run test:ui                # headless-browser check of the canvas, incl. auto re-simulation on edit
-```
-
-## Known limitation
-
-Batch mode prints the `.op` node table with only 6 significant digits, so values come from the full-precision ASCII raw file, with the table as a cross-check; if no ASCII raw file can be written, results fall back to 6-digit precision and an `NGSPICE_RAW_UNAVAILABLE` warning is surfaced in the UI and the API response.
-
 ## Next steps & Live session guide
 
 **What I'd do next:** Multiple named graphs + revision rollback · streaming per-node results (SSE/WebSocket) · extra node types (`subtract`, `min`, `max`, comparisons) · transient/sweep analyses (`.dc`/`.ac`/`.tran`).
