@@ -1,0 +1,28 @@
+{
+  "name": "live-node-graph-engine",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Browser-based visual node graph editor with live ngspice-backed simulation",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "services/api"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build:contract": "npm run build --workspace @lng/graph-contract --if-present",
+    "test:contract": "npm run test --workspace @lng/graph-contract",
+    "test:api": "npm run test --workspace @lng/api",
+    "test:web": "npm run test --workspace @lng/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:py": "cd services/sim && python -m pytest -q",
+    "up": "docker compose up --build",
+    "down": "docker compose down -v",
+    "test:ui": "node tests/e2e/ui-smoke.mjs",
+    "test:acceptance:http": "node tests/e2e/acceptance-http.mjs",
+    "test:evidence": "python3 tests/e2e/netlist-evidence.py"
+  }
+}

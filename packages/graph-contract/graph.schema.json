@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://live-node-graph-engine.local/graph.schema.json",
+  "title": "Graph",
+  "description": "Single source of truth for the node graph contract shared by apps/web, services/api and services/sim.",
+  "type": "object",
+  "required": ["nodes", "edges"],
+  "additionalProperties": true,
+  "properties": {
+    "id": { "type": "string" },
+    "name": { "type": "string", "maxLength": 120 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "updatedAt": { "type": "string" },
+    "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+    "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "required": ["id", "type", "position"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z0-9_.:-]+$" },
+        "type": { "enum": ["number", "add", "multiply", "divide", "formula", "display"] },
+        "position": {
+          "type": "object",
+          "required": ["x", "y"],
+          "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+        },
+        "data": { "type": "object" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["id", "source", "target", "sourceHandle", "targetHandle"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "source": { "type": "string", "minLength": 1 },
+        "target": { "type": "string", "minLength": 1 },
+        "sourceHandle": { "type": "string", "minLength": 1 },
+        "targetHandle": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "x-node-handles": {
+    "number": {
+      "label": "Number",
+      "inputs": [],
+      "outputs": ["out"],
+      "data": { "value": { "kind": "number", "required": true, "default": 1, "min": -1e9, "max": 1e9 } }
+    },
+    "add": { "label": "Add", "inputs": ["a", "b"], "outputs": ["out"], "data": {} },
+    "multiply": { "label": "Multiply", "inputs": ["a", "b"], "outputs": ["out"], "data": {} },
+    "divide": {
+      "label": "Divide",
+      "inputs": ["a", "b"],
+      "outputs": ["out"],
+      "data": {},
+      "notes": "a = numerator, b = denominator; b == 0 is rejected before simulation"
+    },
+    "formula": {
+      "label": "Formula",
+      "inputs": ["a", "b"],
+      "outputs": ["out"],
+      "data": {
+        "expression": { "kind": "formula", "required": true, "default": "a + b", "maxLength": 200 }
+      },
+      "notes": "numeric literals, identifiers a/b, + - * / and parentheses only; strict parser, never eval"
+    },
+    "display": { "label": "Display", "inputs": ["in"], "outputs": [], "data": {} }
+  },
+  "x-error-codes": [
+    "GRAPH_SCHEMA_INVALID",
+    "UNKNOWN_NODE_TYPE",
+    "UNKNOWN_HANDLE",
+    "SELF_LOOP",
+    "DUPLICATE_INPUT_EDGE",
+    "MISSING_INPUT",
+    "CYCLE_DETECTED",
+    "NON_NUMERIC_VALUE",
+    "FORMULA_SYNTAX_ERROR",
+    "FORMULA_DISALLOWED_TOKEN",
+    "DIVIDE_BY_ZERO",
+    "UPSTREAM_ERROR",
+    "NETLIST_ERROR",
+    "NGSPICE_ERROR",
+    "NGSPICE_TIMEOUT",
+    "NGSPICE_MISSING",
+    "PARSE_ERROR",
+    "SIMULATION_SERVICE_UNAVAILABLE",
+    "DB_UNAVAILABLE",
+    "VALIDATION_FAILED"
+  ],
+  "x-limits": {
+    "maxNodes": 200,
+    "maxEdges": 500,
+    "maxFormulaLength": 200,
+    "maxFormulaDepth": 32,
+    "maxFormulaTokens": 256
+  }
+}

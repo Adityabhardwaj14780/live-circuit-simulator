@@ -1,0 +1,34 @@
+node_modules/
+dist/
+build/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+.cache/
+.DS_Store
+.vite/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mongodb-binaries/
+docs/*.local.png
+
+# Local Python environments and test artifacts
+.venv/
+venv/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+
+# Windows download metadata
+*:Zone.Identifier
+
+# Local environment files (keep the example template)
+.env
+.env.*
+!.env.example
+
+# Local submission backups
+.gitignore.pre-submit-backup

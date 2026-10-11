@@ -1,0 +1,94 @@
+# `docker compose up --build` starts the whole system from a clean clone.
+#
+#   web  (nginx, static editor + /api proxy)  ->  api (Express + Mongo)  ->  simulation (FastAPI + ngspice)
+#                                                                      \-> mongo (persistence)
+#
+# Only the API and the web app publish ports; the simulation service and MongoDB stay on the
+# internal network, so the browser can never reach ngspice or the database directly.
+name: live-node-graph-engine
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME:-live_node_graph}
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks: [backend]
+
+  simulation:
+    build:
+      context: .
+      dockerfile: services/sim/Dockerfile
+    restart: unless-stopped
+    environment:
+      SIM_PORT: "8000"
+      NGSPICE_BIN: ${NGSPICE_BIN:-ngspice}
+      SIM_TIMEOUT_S: ${SIM_TIMEOUT_S:-5}
+      SIM_MAX_OUTPUT_BYTES: ${SIM_MAX_OUTPUT_BYTES:-262144}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    expose:
+      - "8000"
+    networks: [backend]
+
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      API_PORT: "4000"
+      MONGO_URL: ${MONGO_URL:-mongodb://mongo:27017}
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-live_node_graph}
+      SIMULATION_SERVICE_URL: ${SIMULATION_SERVICE_URL:-http://simulation:8000}
+      SIMULATION_TIMEOUT_MS: ${SIMULATION_TIMEOUT_MS:-15000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      DEFAULT_GRAPH_ID: ${DEFAULT_GRAPH_ID:-default}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      simulation:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-4000}:4000"
+    networks: [backend]
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-5173}:80"
+    networks: [backend]
+
+  # Run the simulation service test-suite (including the eight acceptance graphs) inside Docker:
+  #   docker compose --profile test run --rm sim-tests
+  sim-tests:
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: services/sim/Dockerfile
+    command: ["python", "-m", "pytest", "-q", "tests"]
+    environment:
+      NGSPICE_BIN: ${NGSPICE_BIN:-ngspice}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    networks: [backend]
+
+volumes:
+  mongo-data:
+
+networks:
+  backend:
+    driver: bridge
